@@ -51,18 +51,25 @@ class CMakeBuild(build_ext):
         if not osp.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
-        WITH_CUDA = torch.cuda.is_available()
+        WITH_CUDA = torch.cuda.is_available() and torch.version.cuda
         WITH_CUDA = bool(int(os.getenv('FORCE_CUDA', WITH_CUDA)))
+
+        WITH_ROCM = torch.cuda.is_available() and torch.version.hip
+        WITH_ROCM = bool(int(os.getenv('FORCE_ROCM', WITH_ROCM)))
 
         cmake_args = [
             '-DBUILD_TEST=OFF',
             '-DBUILD_BENCHMARK=OFF',
             '-DUSE_PYTHON=ON',
             f'-DWITH_CUDA={"ON" if WITH_CUDA else "OFF"}',
+            f'-DWITH_ROCM={"ON" if WITH_ROCM else "OFF"}',
             f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}',
             f'-DCMAKE_BUILD_TYPE={self.build_type}',
             f'-DCMAKE_PREFIX_PATH={torch.utils.cmake_prefix_path}',
         ]
+        
+        if WITH_ROCM:
+            cmake_args.append('-DCMAKE_CXX_COMPILER:PATH=/opt/rocm/bin/amdclang++')
 
         if CMakeBuild.check_env_flag('USE_MKL_BLAS'):
             include_dir = f"{sysconfig.get_path('data')}{os.sep}include"
